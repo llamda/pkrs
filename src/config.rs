@@ -1,15 +1,22 @@
 use serde_derive::{Deserialize, Serialize};
-use std::fs;
+use std::{fs, io, path::Path};
 
 const PATH: &str = "config.toml";
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
-    #[serde(default = "db_path")]
-    db_file_path: String,
+    #[serde(default = "db_sql_path")]
+    pub db_sql_path: String,
+
+    #[serde(default = "db_file_path")]
+    pub db_file_path: String,
 }
 
-fn db_path() -> String {
+fn db_sql_path() -> String {
+    "./db/sqlite.db".to_string()
+}
+
+fn db_file_path() -> String {
     "./db/files".to_string()
 }
 
@@ -31,6 +38,17 @@ impl Config {
             let defaults = toml::to_string(&config).unwrap();
             fs::write(PATH, defaults).expect("Failed to write default config?");
         }
+
         config
+            .create_config_dirs()
+            .expect("Failed to create config dirs?");
+
+        config
+    }
+
+    fn create_config_dirs(&self) -> io::Result<()> {
+        fs::create_dir_all(Path::new(&self.db_sql_path).parent().unwrap())?;
+        fs::create_dir_all(Path::new(&self.db_file_path))?;
+        Ok(())
     }
 }
