@@ -1,3 +1,4 @@
+use crate::post::Post;
 use rusqlite::{Connection, Error, Result};
 
 #[derive(Debug)]
@@ -18,19 +19,20 @@ impl Database {
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS posts (
             postId INTEGER PRIMARY KEY,
-            blake3 BLOB NOT NULL UNIQUE
+            blake3 BLOB NOT NULL UNIQUE,
+            extension TEXT
         )",
             (),
         )?;
         Ok(())
     }
 
-    pub fn insert_post(&mut self, hash: &[u8]) -> Result<i64, Error> {
+    pub fn insert_post(&mut self, post: &Post) -> Result<i64, Error> {
         let mut stmt = self
             .conn
-            .prepare_cached("INSERT OR IGNORE INTO posts (blake3) VALUES (?1)")?;
+            .prepare_cached("INSERT OR IGNORE INTO posts (blake3, extension) VALUES (?1, ?2)")?;
 
-        stmt.execute(&[hash])?;
+        stmt.execute((&post.blake3_bytes, &post.extension))?;
         Ok(self.conn.last_insert_rowid())
     }
 }
