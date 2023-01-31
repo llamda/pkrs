@@ -14,9 +14,11 @@ fn main() {
     let mut db = Database::connect(&config.db_sql_path);
     println!("{:?}", db);
 
-    let arg = env::args().nth(1).unwrap();
-    let post = post::Post::new(Path::new(&arg)).unwrap();
-    println!("{:?}", post);
+    let results: Vec<i64> = env::args()
+        .into_iter()
+        .skip(1)
+        .filter_map(|s| db.insert_tag(&s).ok())
+        .collect();
 
-    db.insert_post(&post).unwrap();
+    println!("Added tags in rows: {:?}", results);
 }

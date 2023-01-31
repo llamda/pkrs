@@ -18,12 +18,21 @@ impl Database {
     fn create_tables(&self) -> Result<()> {
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS posts (
-            postId INTEGER PRIMARY KEY,
+            post_id INTEGER PRIMARY KEY,
             blake3 BLOB NOT NULL UNIQUE,
             extension TEXT
         )",
             (),
         )?;
+
+        self.conn.execute(
+            "CREATE  TABLE IF NOT EXISTS tags (
+            tag_id INTEGER PRIMARY KEY,
+            tag_name TEXT NOT NULL UNIQUE
+        )",
+            (),
+        )?;
+
         Ok(())
     }
 
@@ -33,6 +42,15 @@ impl Database {
             .prepare_cached("INSERT OR IGNORE INTO posts (blake3, extension) VALUES (?1, ?2)")?;
 
         stmt.execute((&post.blake3_bytes, &post.extension))?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    pub fn insert_tag(&mut self, name: &String) -> Result<i64, Error> {
+        let mut stmt = self
+            .conn
+            .prepare_cached("INSERT OR IGNORE INTO tags (tag_name) VALUES (?1)")?;
+
+        stmt.execute((name,))?;
         Ok(self.conn.last_insert_rowid())
     }
 }
