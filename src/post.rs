@@ -9,9 +9,9 @@ pub struct Post {
 }
 
 impl Post {
-    pub fn new(path: &Path) -> Result<Self, Box<dyn Error>> {
+    pub fn new(path: &String) -> Result<Self, Box<dyn Error>> {
+        let path = Path::new(path);
         let hash = hash::hash_file_blake3(path)?;
-        println!("{:?}", hash);
 
         let extension = path
             .extension()
