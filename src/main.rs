@@ -21,6 +21,7 @@ struct Args {
 enum Mode {
     File,
     Tag,
+    Tagging,
 }
 
 fn main() {
@@ -57,5 +58,18 @@ fn main() {
                 }
             }
         }
+
+        Mode::Tagging => {
+            let ints: Vec<u32> = cli
+                .args
+                .into_iter()
+                .filter_map(|s| s.parse::<u32>().ok())
+                .collect();
+
+            let post_id = ints[0];
+            let tag_id = ints[1];
+            db.insert_tagging(post_id, tag_id).unwrap();
+        }
+        
     }
 }
