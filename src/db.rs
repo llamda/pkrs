@@ -46,6 +46,14 @@ impl Database {
         Ok(())
     }
 
+    pub fn begin(&mut self) -> Result<()> {
+        Ok(self.conn.execute_batch("BEGIN TRANSACTION;")?)
+    }
+
+    pub fn commit(&mut self) -> Result<()> {
+        Ok(self.conn.execute_batch("COMMIT TRANSACTION;")?)
+    }
+
     pub fn insert_post(&mut self, post: &Post) -> Result<i64, Error> {
         let mut stmt = self
             .conn
