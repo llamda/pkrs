@@ -1,15 +1,19 @@
+use crate::db::Database;
 use crate::hash;
+use crate::Config;
 use std::error::Error;
+use std::fs;
 use std::path::Path;
 
 #[derive(Debug)]
 pub struct Post {
     pub blake3_bytes: [u8; 32],
     pub extension: Option<String>,
+    pub original_name: String,
 }
 
 impl Post {
-    pub fn new(path: &String) -> Result<Self, Box<dyn Error>> {
+    pub fn new(path: &String, config: &Config, db: &mut Database) -> Result<Self, Box<dyn Error>> {
         let path = Path::new(path);
         let hash = hash::hash_file_blake3(path)?;
 
@@ -17,11 +21,34 @@ impl Post {
             .extension()
             .and_then(|s| s.to_os_string().into_string().ok());
 
+        let original_name = path
+            .file_name()
+            .unwrap()
+            .to_os_string()
+            .into_string()
+            .unwrap();
+
         let post = Post {
             blake3_bytes: *hash.as_bytes(),
             extension,
+            original_name,
         };
 
+        let already_added = db.insert_post(&post)? == 0;
+        if !already_added {
+            let hex = hash.to_hex();
+            let db_folder = Path::new(&config.db_file_path)
+                .join(hex.get(0..2).unwrap())
+                .join(hex.get(2..4).unwrap());
+
+            fs::create_dir_all(&db_folder)?;
+            let mut db_location = db_folder.join(hex.as_str());
+            if let Some(ext) = &post.extension {
+                db_location.set_extension(&ext);
+            }
+
+            fs::copy(path, db_location)?;
+        }
         Ok(post)
     }
 }

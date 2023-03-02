@@ -38,19 +38,13 @@ fn main() {
     match cli.mode {
         Mode::File => {
             for file in cli.args {
-                let post = match Post::new(&file) {
+                match Post::new(&file, &config, &mut db) {
                     Ok(post) => post,
                     Err(e) => {
                         eprintln!("{}", e);
                         continue;
                     }
                 };
-
-                match db.insert_post(&post) {
-                    Ok(0) => println!("File already exists in database: {}", file),
-                    Ok(n) => println!("Added {} to row {}.", file, n),
-                    Err(e) => eprintln!("{}", e),
-                }
             }
         }
 

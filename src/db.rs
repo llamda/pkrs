@@ -20,7 +20,8 @@ impl Database {
             "CREATE TABLE IF NOT EXISTS posts (
             post_id INTEGER PRIMARY KEY,
             blake3 BLOB NOT NULL UNIQUE,
-            extension TEXT
+            extension TEXT,
+            original_name TEXT
         )",
             (),
         )?;
@@ -55,11 +56,11 @@ impl Database {
     }
 
     pub fn insert_post(&mut self, post: &Post) -> Result<i64, Error> {
-        let mut stmt = self
-            .conn
-            .prepare_cached("INSERT OR IGNORE INTO posts (blake3, extension) VALUES (?1, ?2)")?;
+        let mut stmt = self.conn.prepare_cached(
+            "INSERT OR IGNORE INTO posts (blake3, extension, original_name) VALUES (?1, ?2, ?3)",
+        )?;
 
-        stmt.execute((&post.blake3_bytes, &post.extension))?;
+        stmt.execute((&post.blake3_bytes, &post.extension, &post.original_name))?;
         Ok(self.conn.last_insert_rowid())
     }
 
