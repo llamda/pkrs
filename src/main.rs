@@ -27,6 +27,7 @@ enum Mode {
     File,
     Tag,
     Tagging,
+    Test,
 }
 
 fn main() {
@@ -36,6 +37,16 @@ fn main() {
     let mut db = Database::connect(&config.db_sql_path);
 
     match cli.mode {
+        Mode::Test => {
+            let str = &cli.args[0];
+            let tags = &cli.args[1..].to_vec();
+
+            // println!("tag_id: {:?}", db.get_or_create_tag(&str));
+            let post = Post::new(&str, &config, &mut db).unwrap();
+
+            println!("{:?}", post);
+            println!("{:?}", post.set_tags(&tags, &mut db));
+        }
         Mode::File => {
             for file in cli.args {
                 match Post::new(&file, &config, &mut db) {
@@ -71,10 +82,10 @@ fn main() {
         }
 
         Mode::Tagging => {
-            let ints: Vec<u32> = cli
+            let ints: Vec<i64> = cli
                 .args
                 .into_iter()
-                .filter_map(|s| s.parse::<u32>().ok())
+                .filter_map(|s| s.parse::<i64>().ok())
                 .collect();
 
             let post_id = ints[0];
