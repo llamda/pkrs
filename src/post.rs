@@ -1,9 +1,11 @@
 use crate::db::Database;
 use crate::hash;
 use crate::Config;
+use blake3::Hash;
 use std::error::Error;
+use std::fmt;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub struct Post {
@@ -11,6 +13,7 @@ pub struct Post {
     pub blake3_bytes: [u8; 32],
     pub extension: Option<String>,
     pub original_name: String,
+    pub tags: Vec<String>,
 }
 
 impl Post {
@@ -34,6 +37,7 @@ impl Post {
             blake3_bytes: *hash.as_bytes(),
             extension,
             original_name,
+            tags: vec![],
         };
 
         let row_id = db.insert_post(&post)?;
@@ -50,10 +54,7 @@ impl Post {
             .join(hex.get(2..4).unwrap());
 
         fs::create_dir_all(&db_folder)?;
-        let mut db_location = db_folder.join(hex.as_str());
-        if let Some(ext) = &post.extension {
-            db_location.set_extension(&ext);
-        }
+        let db_location = db_folder.join(post.get_path());
 
         fs::copy(path, db_location)?;
 
@@ -75,5 +76,27 @@ impl Post {
         }
         db.commit()?;
         Ok(())
+    }
+
+    pub fn get_path(&self) -> PathBuf {
+        let hex = Hash::from(self.blake3_bytes).to_hex().to_string();
+        let mut path = Path::new(&hex).to_owned();
+
+        if let Some(ext) = &self.extension {
+            path.set_extension(&ext);
+        }
+        return path;
+    }
+}
+
+impl fmt::Display for Post {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Post {{\n  id:{}\n  file: {}\n  tags: [{}]\n}}",
+            self.id,
+            self.get_path().into_os_string().into_string().unwrap(),
+            self.tags.join(","),
+        )
     }
 }

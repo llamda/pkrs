@@ -44,8 +44,8 @@ fn main() {
             // println!("tag_id: {:?}", db.get_or_create_tag(&str));
             let post = Post::new(&str, &config, &mut db).unwrap();
 
-            println!("{:?}", post);
-            println!("{:?}", post.set_tags(&tags, &mut db));
+            println!("{}", post);
+            post.set_tags(&tags, &mut db).unwrap();
         }
         Mode::File => {
             for file in cli.args {
