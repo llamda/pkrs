@@ -2,6 +2,7 @@ use crate::db::Database;
 use crate::hash;
 use crate::Config;
 use blake3::Hash;
+use std::collections::HashSet;
 use std::error::Error;
 use std::fmt;
 use std::fs;
@@ -13,7 +14,7 @@ pub struct Post {
     pub blake3_bytes: [u8; 32],
     pub extension: Option<String>,
     pub original_name: String,
-    pub tags: Vec<String>,
+    pub tags: HashSet<String>,
 }
 
 impl Post {
@@ -37,7 +38,7 @@ impl Post {
             blake3_bytes: *hash.as_bytes(),
             extension,
             original_name,
-            tags: vec![],
+            tags: HashSet::new(),
         };
 
         let row_id = db.insert_post(&post)?;
@@ -54,31 +55,61 @@ impl Post {
             .join(hex.get(2..4).unwrap());
 
         fs::create_dir_all(&db_folder)?;
-        let db_location = db_folder.join(post.get_path());
+        let db_location = db_folder.join(post.get_file());
 
         fs::copy(path, db_location)?;
 
         Ok(post)
     }
 
-    pub fn set_tags(&self, tags: &Vec<String>, db: &mut Database) -> Result<(), Box<dyn Error>> {
+    pub fn add_tag(&mut self, tag: &String, db: &Database) -> Result<i64, Box<dyn Error>> {
+        if self.tags.contains(tag) {
+            return Ok(0);
+        }
+
+        self.tags.insert(tag.to_string());
+        let tag_id = db.get_or_create_tag(&tag)?;
+        Ok(db.insert_tagging(self.id, tag_id)?)
+    }
+
+    pub fn add_tags(
+        &mut self,
+        tags: &Vec<String>,
+        db: &mut Database,
+    ) -> Result<(), Box<dyn Error>> {
         db.begin()?;
         for tag in tags {
-            let tag_id = db.get_or_create_tag(&tag)?;
-            let tagging_id = db.insert_tagging(self.id, tag_id)?;
-            match tagging_id {
-                0 => println!("Post {} already had tag {}", self.id, tag),
-                _ => println!(
-                    "Post {} now has tag {} (id: {}) tagging: {}",
-                    self.id, tag, tag_id, tagging_id
-                ),
-            }
+            self.add_tag(&tag, &db)?;
         }
         db.commit()?;
         Ok(())
     }
 
-    pub fn get_path(&self) -> PathBuf {
+    pub fn remove_tag(&mut self, tag: &String, db: &Database) -> Result<(), Box<dyn Error>> {
+        if !self.tags.contains(tag) {
+            return Ok(());
+        }
+
+        self.tags.remove(tag);
+        let tag_id = db.get_tag_id(tag)?;
+        db.remove_tagging(self.id, tag_id)?;
+        Ok(())
+    }
+
+    pub fn remove_tags(
+        &mut self,
+        tags: &Vec<String>,
+        db: &mut Database,
+    ) -> Result<(), Box<dyn Error>> {
+        db.begin()?;
+        for tag in tags {
+            self.remove_tag(&tag, &db)?;
+        }
+        db.commit()?;
+        Ok(())
+    }
+
+    pub fn get_file(&self) -> PathBuf {
         let hex = Hash::from(self.blake3_bytes).to_hex().to_string();
         let mut path = Path::new(&hex).to_owned();
 
@@ -86,6 +117,18 @@ impl Post {
             path.set_extension(&ext);
         }
         return path;
+    }
+
+    pub fn get_file_string(&self) -> String {
+        self.get_file().into_os_string().into_string().unwrap()
+    }
+
+    pub fn get_tag_string(&self) -> String {
+        self.tags
+            .clone()
+            .into_iter()
+            .collect::<Vec<String>>()
+            .join(",")
     }
 }
 
@@ -95,8 +138,8 @@ impl fmt::Display for Post {
             f,
             "Post {{\n  id:{}\n  file: {}\n  tags: [{}]\n}}",
             self.id,
-            self.get_path().into_os_string().into_string().unwrap(),
-            self.tags.join(","),
+            self.get_file_string(),
+            self.get_tag_string(),
         )
     }
 }

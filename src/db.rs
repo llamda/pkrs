@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::post::Post;
 use rusqlite::{Connection, Error, Result, Row};
 
@@ -82,6 +84,15 @@ impl Database {
         Ok(self.conn.last_insert_rowid())
     }
 
+    pub fn remove_tagging(&self, post_id: i64, tag_id: i64) -> Result<(), Error> {
+        let mut stmt = self
+            .conn
+            .prepare_cached("DELETE FROM taggings WHERE post_id = (?1) AND tag_id = (?2)")?;
+
+        stmt.execute((post_id, tag_id))?;
+        Ok(())
+    }
+
     pub fn get_post_id(&self, post_id: i64) -> Result<Post, Error> {
         let mut stmt = self
             .conn
@@ -117,14 +128,14 @@ impl Database {
         Ok(stmt.query_row((name,), |row| row.get(0))?)
     }
 
-    pub fn get_or_create_tag(&mut self, name: &String) -> Result<i64, Error> {
+    pub fn get_or_create_tag(&self, name: &String) -> Result<i64, Error> {
         match self.get_tag_id(name) {
             Ok(existing) => Ok(existing),
             Err(_) => self.insert_tag(name),
         }
     }
 
-    pub fn get_post_tags(&self, post_id: i64) -> Result<Vec<String>, Error> {
+    pub fn get_post_tags(&self, post_id: i64) -> Result<HashSet<String>, Error> {
         let mut stmt = self.conn.prepare_cached(
             "SELECT tags.tag_name
             FROM tags, taggings
@@ -133,9 +144,9 @@ impl Database {
         )?;
 
         let rows = stmt.query_map([post_id], |row| row.get(0))?;
-        let mut tags = Vec::new();
+        let mut tags = HashSet::new();
         for tag in rows {
-            tags.push(tag?);
+            tags.insert(tag?);
         }
 
         Ok(tags)

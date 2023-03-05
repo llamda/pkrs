@@ -28,6 +28,7 @@ enum Mode {
     Tag,
     Tagging,
     Test,
+    Test2,
 }
 
 fn main() {
@@ -42,10 +43,18 @@ fn main() {
             let tags = &cli.args[1..].to_vec();
 
             // println!("tag_id: {:?}", db.get_or_create_tag(&str));
-            let post = Post::new(&str, &config, &mut db).unwrap();
+            let mut post = Post::new(&str, &config, &mut db).unwrap();
 
+            post.add_tags(&tags, &mut db).unwrap();
             println!("{}", post);
-            post.set_tags(&tags, &mut db).unwrap();
+        }
+        Mode::Test2 => {
+            let str = &cli.args[0];
+            let tags = &cli.args[1..].to_vec();
+            let mut post = Post::new(&str, &config, &mut db).unwrap();
+
+            post.remove_tags(tags, &mut db).unwrap();
+            println!("{}", post);
         }
         Mode::File => {
             for file in cli.args {
