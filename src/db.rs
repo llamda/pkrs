@@ -58,11 +58,10 @@ impl Database {
     }
 
     pub fn insert_post(&self, post: &Post) -> Result<i64, Error> {
-        let mut stmt = self.conn.prepare_cached(
-            "INSERT OR IGNORE INTO posts (blake3, extension, original_name) VALUES (?1, ?2, ?3)",
-        )?;
+        self.conn.prepare_cached(
+            "INSERT OR IGNORE INTO posts (blake3, extension, original_name) VALUES (?1, ?2, ?3)")?
+            .execute((&post.blake3_bytes, &post.extension, &post.original_name))?;
 
-        stmt.execute((&post.blake3_bytes, &post.extension, &post.original_name))?;
         Ok(self.conn.last_insert_rowid())
     }
 
@@ -79,11 +78,10 @@ impl Database {
     }
 
     pub fn insert_tag(&self, name: &String) -> Result<i64, Error> {
-        let mut stmt = self
-            .conn
-            .prepare_cached("INSERT OR IGNORE INTO tags (tag_name) VALUES (?1)")?;
+        self.conn
+            .prepare_cached("INSERT OR IGNORE INTO tags (tag_name) VALUES (?1)")?
+            .execute([name])?;
 
-        stmt.execute((name,))?;
         Ok(self.conn.last_insert_rowid())
     }
 
@@ -102,37 +100,33 @@ impl Database {
     }
 
     pub fn insert_tagging(&self, post_id: i64, tag_id: i64) -> Result<i64, Error> {
-        let mut stmt = self
-            .conn
-            .prepare_cached("INSERT OR IGNORE INTO taggings (post_id, tag_id) VALUES (?1, ?2)")?;
+        self.conn
+            .prepare_cached("INSERT OR IGNORE INTO taggings (post_id, tag_id) VALUES (?1, ?2)")?
+            .execute([post_id, tag_id])?;
 
-        stmt.execute((post_id, tag_id))?;
         Ok(self.conn.last_insert_rowid())
     }
 
     pub fn remove_tagging(&self, post_id: i64, tag_id: i64) -> Result<(), Error> {
-        let mut stmt = self
-            .conn
-            .prepare_cached("DELETE FROM taggings WHERE post_id = (?1) AND tag_id = (?2)")?;
+        self.conn
+            .prepare_cached("DELETE FROM taggings WHERE post_id = (?1) AND tag_id = (?2)")?
+            .execute([post_id, tag_id])?;
 
-        stmt.execute((post_id, tag_id))?;
         Ok(())
     }
 
     pub fn get_post_id(&self, post_id: i64) -> Result<Post, Error> {
-        let mut stmt = self
+        Ok(self
             .conn
-            .prepare_cached("SELECT * FROM posts WHERE (post_id) = (?1)")?;
-
-        Ok(stmt.query_row((post_id,), |row| self.row_to_post(row))?)
+            .prepare_cached("SELECT * FROM posts WHERE (post_id) = (?1)")?
+            .query_row([post_id], |row| self.row_to_post(row))?)
     }
 
     pub fn get_post_blake3(&self, blake3_bytes: [u8; 32]) -> Result<Post, Error> {
-        let mut stmt = self
+        Ok(self
             .conn
-            .prepare_cached("SELECT * FROM posts WHERE (blake3) = (?1)")?;
-
-        Ok(stmt.query_row((blake3_bytes,), |row| self.row_to_post(row))?)
+            .prepare_cached("SELECT * FROM posts WHERE (blake3) = (?1)")?
+            .query_row([blake3_bytes], |row| self.row_to_post(row))?)
     }
 
     fn row_to_post(&self, row: &Row) -> Result<Post, Error> {
@@ -147,11 +141,10 @@ impl Database {
     }
 
     pub fn get_tag_id(&self, name: &String) -> Result<i64, Error> {
-        let mut stmt = self
+        Ok(self
             .conn
-            .prepare_cached("SELECT tag_id FROM tags WHERE (tag_name) = (?1)")?;
-
-        Ok(stmt.query_row((name,), |row| row.get(0))?)
+            .prepare_cached("SELECT tag_id FROM tags WHERE (tag_name) = (?1)")?
+            .query_row([name], |row| row.get(0))?)
     }
 
     pub fn get_or_create_tag(&self, name: &String) -> Result<i64, Error> {
