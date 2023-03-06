@@ -120,11 +120,9 @@ impl Post {
     }
 
     pub fn get_tag_string(&self) -> String {
-        self.tags
-            .clone()
-            .into_iter()
-            .collect::<Vec<String>>()
-            .join(",")
+        let mut tags = self.tags.clone().into_iter().collect::<Vec<String>>();
+        tags.sort();
+        tags.join(",")
     }
 }
 
