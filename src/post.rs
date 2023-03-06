@@ -77,11 +77,9 @@ impl Post {
         tags: &Vec<String>,
         db: &mut Database,
     ) -> Result<(), Box<dyn Error>> {
-        db.begin()?;
         for tag in tags {
             self.add_tag(&tag, &db)?;
         }
-        db.commit()?;
         Ok(())
     }
 
@@ -101,11 +99,9 @@ impl Post {
         tags: &Vec<String>,
         db: &mut Database,
     ) -> Result<(), Box<dyn Error>> {
-        db.begin()?;
         for tag in tags {
             self.remove_tag(&tag, &db)?;
         }
-        db.commit()?;
         Ok(())
     }
 
