@@ -18,35 +18,27 @@ impl Database {
     }
 
     fn create_tables(&self) -> Result<()> {
-        self.conn.execute(
-            "CREATE TABLE IF NOT EXISTS posts (
+        Ok(self.conn.execute_batch(
+            r#"
+
+            CREATE TABLE IF NOT EXISTS posts (
             post_id INTEGER PRIMARY KEY,
             blake3 BLOB NOT NULL UNIQUE,
             extension TEXT,
-            original_name TEXT
-        )",
-            (),
-        )?;
+            original_name TEXT);
 
-        self.conn.execute(
-            "CREATE TABLE IF NOT EXISTS tags (
+            CREATE TABLE IF NOT EXISTS tags (
             tag_id INTEGER PRIMARY KEY,
-            tag_name TEXT NOT NULL UNIQUE
-        )",
-            (),
-        )?;
+            tag_name TEXT NOT NULL UNIQUE);
 
-        self.conn.execute(
-            "CREATE TABLE IF NOT EXISTS taggings (
+            CREATE TABLE IF NOT EXISTS taggings (
             tagging_id INTEGER PRIMARY KEY,
             post_id INTEGER NOT NULL,
             tag_id INTEGER NOT NULL,
-            UNIQUE(post_id, tag_id) ON CONFLICT IGNORE
-        )",
-            (),
-        )?;
+            UNIQUE(post_id, tag_id) ON CONFLICT IGNORE);
 
-        Ok(())
+        "#,
+        )?)
     }
 
     pub fn begin(&self) -> Result<()> {
