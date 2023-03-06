@@ -66,6 +66,18 @@ impl Database {
         Ok(self.conn.last_insert_rowid())
     }
 
+    pub fn remove_post(&self, post_id: i64) -> Result<(), Error> {
+        self.conn
+            .prepare_cached("DELETE FROM posts WHERE post_id = (?1)")?
+            .execute([post_id])?;
+
+        self.conn
+            .prepare_cached("DELETE FROM taggings WHERE post_id = (?1)")?
+            .execute([post_id])?;
+
+        Ok(())
+    }
+
     pub fn insert_tag(&self, name: &String) -> Result<i64, Error> {
         let mut stmt = self
             .conn
@@ -73,6 +85,20 @@ impl Database {
 
         stmt.execute((name,))?;
         Ok(self.conn.last_insert_rowid())
+    }
+
+    pub fn remove_tag(&self, tag_name: &String) -> Result<i64, Error> {
+        let tag_id = self.get_tag_id(tag_name)?;
+
+        self.conn
+            .prepare_cached("DELETE FROM tags WHERE tag_id = (?1)")?
+            .execute([tag_id])?;
+
+        self.conn
+            .prepare_cached("DELETE FROM taggings WHERE tag_id = (?1)")?
+            .execute([tag_id])?;
+
+        Ok(tag_id)
     }
 
     pub fn insert_tagging(&self, post_id: i64, tag_id: i64) -> Result<i64, Error> {

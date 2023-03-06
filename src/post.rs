@@ -1,6 +1,7 @@
 use crate::db::Database;
 use crate::hash;
 use crate::Config;
+use arrayvec::ArrayString;
 use blake3::Hash;
 use std::collections::HashSet;
 use std::error::Error;
@@ -50,12 +51,10 @@ impl Post {
         post.id = row_id;
 
         let hex = hash.to_hex();
-        let db_folder = Path::new(&config.db_file_path)
-            .join(hex.get(0..2).unwrap())
-            .join(hex.get(2..4).unwrap());
+        let db_folder = post.get_folder_from_hex(hex, &config);
 
         fs::create_dir_all(&db_folder)?;
-        let db_location = db_folder.join(post.get_file());
+        let db_location = db_folder.join(post.get_file_from_hex(hex));
 
         fs::copy(path, db_location)?;
 
@@ -105,14 +104,22 @@ impl Post {
         Ok(())
     }
 
-    pub fn get_file(&self) -> PathBuf {
-        let hex = Hash::from(self.blake3_bytes).to_hex().to_string();
-        let mut path = Path::new(&hex).to_owned();
+    pub fn get_folder_from_hex(&self, hex: ArrayString<64>, config: &Config) -> PathBuf {
+        Path::new(&config.db_file_path)
+            .join(hex.get(0..2).unwrap())
+            .join(hex.get(2..4).unwrap())
+    }
 
+    pub fn get_file_from_hex(&self, hex: ArrayString<64>) -> PathBuf {
+        let mut path = Path::new(hex.as_ref()).to_owned();
         if let Some(ext) = &self.extension {
             path.set_extension(&ext);
         }
-        return path;
+        path
+    }
+
+    pub fn get_file(&self) -> PathBuf {
+        self.get_file_from_hex(Hash::from(self.blake3_bytes).to_hex())
     }
 
     pub fn get_file_string(&self) -> String {
@@ -123,6 +130,16 @@ impl Post {
         let mut tags = self.tags.clone().into_iter().collect::<Vec<String>>();
         tags.sort();
         tags.join(",")
+    }
+
+    pub fn delete(self, config: &Config, db: &Database) -> Result<(), Box<dyn Error>> {
+        let hex = Hash::from(self.blake3_bytes).to_hex();
+        let file_path = self
+            .get_folder_from_hex(hex, &config)
+            .join(self.get_file_from_hex(hex));
+
+        db.remove_post(self.id)?;
+        Ok(fs::remove_file(file_path)?)
     }
 }
 

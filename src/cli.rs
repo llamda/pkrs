@@ -15,11 +15,11 @@ pub struct Cli {
 enum Mode {
     Add {
         #[command(subcommand)]
-        mode: Type,
+        mode: AddType,
     },
     Remove {
         #[command(subcommand)]
-        mode: Type,
+        mode: RemoveType,
     },
     Tag {
         #[arg(long, short)]
@@ -34,10 +34,22 @@ enum Mode {
 }
 
 #[derive(Subcommand, Debug)]
-enum Type {
+enum AddType {
     File {
         #[arg(required = true)]
         files: Vec<String>,
+    },
+    Tag {
+        #[arg(required = true)]
+        tags: Vec<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum RemoveType {
+    File {
+        #[arg(required = true)]
+        post_ids: Vec<i64>,
     },
     Tag {
         #[arg(required = true)]
@@ -52,13 +64,13 @@ impl Cli {
 
         match cli.command {
             Mode::Add { mode } => match mode {
-                Type::File { files } => {
+                AddType::File { files } => {
                     for file in files {
                         let post = Post::new(&file, &config, &mut db)?;
                         println!("{} -> Post #{}", file, post.id);
                     }
                 }
-                Type::Tag { tags } => {
+                AddType::Tag { tags } => {
                     for tag in tags {
                         let tag_id = db.get_or_create_tag(&tag)?;
                         println!("{} -> Tag #{}", tag, tag_id);
@@ -66,11 +78,18 @@ impl Cli {
                 }
             },
             Mode::Remove { mode } => match mode {
-                Type::File { files } => {
-                    todo!();
+                RemoveType::File { post_ids } => {
+                    for post_id in post_ids {
+                        let post = db.get_post_id(post_id)?;
+                        println!("Removing post #{}", post.id);
+                        post.delete(&config, &db)?;
+                    }
                 }
-                Type::Tag { tags } => {
-                    todo!();
+                RemoveType::Tag { tags } => {
+                    for tag in tags {
+                        let tag_id = db.remove_tag(&tag)?;
+                        println!("Removing '{}' #{}", tag, tag_id);
+                    }
                 }
             },
             Mode::Tag {
