@@ -22,7 +22,7 @@ impl Database {
 
     fn create_tables(&self) -> Result<()> {
         Ok(self.conn.execute_batch(
-            r#"
+            "
 
             CREATE TABLE IF NOT EXISTS posts (
             post_id INTEGER PRIMARY KEY,
@@ -40,7 +40,7 @@ impl Database {
             tag_id INTEGER NOT NULL,
             UNIQUE(post_id, tag_id) ON CONFLICT IGNORE);
 
-        "#,
+        ",
         )?)
     }
 
