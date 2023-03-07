@@ -31,6 +31,10 @@ enum Mode {
         #[arg(required = true)]
         tags: Vec<String>,
     },
+    Search {
+        #[arg(required = true)]
+        tags: Vec<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -111,6 +115,14 @@ impl Cli {
                 };
 
                 println!("{} {} tag{}. New {}", action, diff, plural, post);
+            }
+
+            Mode::Search { tags } => {
+                println!("Searching for '{}'", tags.join("+"));
+                let posts = db.search(tags)?;
+                for post in posts {
+                    println!("{}", post);
+                }
             }
         }
 

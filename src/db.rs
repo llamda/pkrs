@@ -1,7 +1,7 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, rc::Rc};
 
 use crate::post::Post;
-use rusqlite::{Connection, Error, Result, Row};
+use rusqlite::{types::Value, Connection, Error, Result, Row};
 
 #[derive(Debug)]
 pub struct Database {
@@ -12,6 +12,9 @@ impl Database {
     pub fn connect(path: &String) -> Self {
         let conn = Connection::open(path).expect("Failed to open the sqlite database?");
         let db = Database { conn };
+
+        rusqlite::vtab::array::load_module(&db.conn)
+            .expect("Failed to load virtual tables module?");
 
         db.create_tables().expect("Failed to create a table?");
         db
@@ -161,5 +164,34 @@ impl Database {
         }
 
         Ok(tags)
+    }
+
+    pub fn search(&self, args: Vec<String>) -> Result<Vec<Post>, Error> {
+        let values = Rc::new(
+            args.iter()
+                .map(String::from)
+                .map(Value::from)
+                .collect::<Vec<Value>>(),
+        );
+
+        let tag_count = args.len();
+
+        let mut stmt = self.conn.prepare_cached(
+            "SELECT posts.*
+            FROM posts, taggings, tags
+            WHERE taggings.tag_id = tags.tag_id
+            AND (tags.tag_name IN rarray(?1))
+            AND posts.post_id = taggings.post_id
+            GROUP BY posts.post_id
+            HAVING COUNT(posts.post_id) = (?2)",
+        )?;
+
+        let rows = stmt.query_map((values, tag_count), |row| self.row_to_post(row))?;
+        let mut posts = Vec::new();
+        for post in rows {
+            posts.push(post?);
+        }
+
+        Ok(posts)
     }
 }
