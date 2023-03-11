@@ -166,27 +166,38 @@ impl Database {
         Ok(tags)
     }
 
-    pub fn search(&self, args: Vec<String>) -> Result<Vec<Post>, Error> {
-        let values = Rc::new(
-            args.iter()
+    fn to_rc_vec(vec: Vec<String>) -> Rc<Vec<Value>> {
+        Rc::new(
+            vec.iter()
                 .map(String::from)
                 .map(Value::from)
                 .collect::<Vec<Value>>(),
-        );
+        )
+    }
 
-        let tag_count = args.len();
+    pub fn search(&self, include: Vec<String>, exclude: Vec<String>) -> Result<Vec<Post>, Error> {
+        let include = Self::to_rc_vec(include);
+        let exclude = Self::to_rc_vec(exclude);
+        let tag_count = include.len();
 
         let mut stmt = self.conn.prepare_cached(
             "SELECT posts.*
             FROM posts, taggings, tags
             WHERE taggings.tag_id = tags.tag_id
             AND (tags.tag_name IN rarray(?1))
+            AND posts.post_id NOT IN (
+                SELECT posts.post_id
+                FROM posts, taggings, tags
+                WHERE posts.post_id = taggings.post_id
+                AND taggings.tag_id = tags.tag_id
+                AND (tags.tag_name IN rarray(?2))
+            )
             AND posts.post_id = taggings.post_id
             GROUP BY posts.post_id
-            HAVING COUNT(posts.post_id) = (?2)",
+            HAVING COUNT(posts.post_id) = (?3)",
         )?;
 
-        let rows = stmt.query_map((values, tag_count), |row| self.row_to_post(row))?;
+        let rows = stmt.query_map((include, exclude, tag_count), |row| self.row_to_post(row))?;
         let mut posts = Vec::new();
         for post in rows {
             posts.push(post?);

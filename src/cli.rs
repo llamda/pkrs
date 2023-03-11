@@ -31,8 +31,9 @@ enum Mode {
         #[arg(required = true)]
         tags: Vec<String>,
     },
+
     Search {
-        #[arg(required = true)]
+        #[arg(required = true, allow_hyphen_values = true)]
         tags: Vec<String>,
     },
 }
@@ -118,8 +119,23 @@ impl Cli {
             }
 
             Mode::Search { tags } => {
-                println!("Searching for '{}'", tags.join("+"));
-                let posts = db.search(tags)?;
+                let mut include = Vec::new();
+                let mut exclude = Vec::new();
+
+                for tag in tags {
+                    match tag.starts_with('-') {
+                        true => exclude.push(tag[1..].to_owned()),
+                        false => include.push(tag),
+                    }
+                }
+
+                println!(
+                    "Searching for '{}' Excluding: {}",
+                    include.join(","),
+                    exclude.join(",")
+                );
+
+                let posts = db.search(include, exclude)?;
                 for post in posts {
                     println!("{}", post);
                 }
