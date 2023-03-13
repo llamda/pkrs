@@ -9,9 +9,9 @@ use db::Database;
 
 fn main() {
     let config = Config::get();
-    let mut db = Database::connect(&config.db_sql_path);
+    let mut db = Database::connect(config);
 
-    if let Err(e) = Cli::run(&config, &mut db) {
+    if let Err(e) = Cli::run(&mut db) {
         eprintln!("{:#?}", e);
     }
 }

@@ -2,7 +2,7 @@ use std::error::Error;
 
 use clap::{Parser, Subcommand};
 
-use crate::{config::Config, db::Database, post::Post};
+use crate::{db::Database, post::Post};
 
 #[derive(Parser, Debug)]
 #[clap(trailing_var_arg = true)]
@@ -63,7 +63,7 @@ enum RemoveType {
 }
 
 impl Cli {
-    pub fn run(config: &Config, db: &mut Database) -> Result<(), Box<dyn Error>> {
+    pub fn run(db: &mut Database) -> Result<(), Box<dyn Error>> {
         let cli = Cli::parse();
         db.begin()?;
 
@@ -71,7 +71,7 @@ impl Cli {
             Mode::Add { mode } => match mode {
                 AddType::File { files } => {
                     for file in files {
-                        let post = Post::new(&file, config, db)?;
+                        let post = Post::new(&file, db)?;
                         println!("{} -> Post #{}", file, post.id);
                     }
                 }
@@ -87,7 +87,7 @@ impl Cli {
                     for post_id in post_ids {
                         let post = db.get_post_id(post_id)?;
                         println!("Removing post #{}", post.id);
-                        post.delete(config, db)?;
+                        post.delete(db)?;
                     }
                 }
                 RemoveType::Tag { tags } => {

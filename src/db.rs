@@ -1,17 +1,19 @@
 use std::{collections::HashSet, rc::Rc};
 
-use crate::post::Post;
+use crate::{config::Config, post::Post};
 use rusqlite::{types::Value, Connection, Error, Result, Row};
 
 #[derive(Debug)]
 pub struct Database {
     pub conn: Connection,
+    pub config: Config,
 }
 
 impl Database {
-    pub fn connect(path: &String) -> Self {
-        let conn = Connection::open(path).expect("Failed to open the sqlite database?");
-        let db = Database { conn };
+    pub fn connect(config: Config) -> Self {
+        let conn =
+            Connection::open(&config.db_sql_path).expect("Failed to open the sqlite database?");
+        let db = Database { conn, config };
 
         rusqlite::vtab::array::load_module(&db.conn)
             .expect("Failed to load virtual tables module?");
@@ -111,15 +113,13 @@ impl Database {
     }
 
     pub fn get_post_id(&self, post_id: i64) -> Result<Post, Error> {
-        self
-            .conn
+        self.conn
             .prepare_cached("SELECT * FROM posts WHERE (post_id) = (?1)")?
             .query_row([post_id], |row| self.row_to_post(row))
     }
 
     pub fn get_post_blake3(&self, blake3_bytes: [u8; 32]) -> Result<Post, Error> {
-        self
-            .conn
+        self.conn
             .prepare_cached("SELECT * FROM posts WHERE (blake3) = (?1)")?
             .query_row([blake3_bytes], |row| self.row_to_post(row))
     }
@@ -136,8 +136,7 @@ impl Database {
     }
 
     pub fn get_tag_id(&self, name: &String) -> Result<i64, Error> {
-        self
-            .conn
+        self.conn
             .prepare_cached("SELECT tag_id FROM tags WHERE (tag_name) = (?1)")?
             .query_row([name], |row| row.get(0))
     }

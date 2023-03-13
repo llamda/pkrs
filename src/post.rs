@@ -19,7 +19,7 @@ pub struct Post {
 }
 
 impl Post {
-    pub fn new(path: &String, config: &Config, db: &mut Database) -> Result<Self, Box<dyn Error>> {
+    pub fn new(path: &String, db: &mut Database) -> Result<Self, Box<dyn Error>> {
         let path = Path::new(path);
         let hash = hash::hash_file_blake3(path)?;
 
@@ -51,7 +51,7 @@ impl Post {
         post.id = row_id;
 
         let hex = hash.to_hex();
-        let db_folder = post.get_folder_from_hex(hex, config);
+        let db_folder = post.get_folder_from_hex(hex, &db.config);
 
         fs::create_dir_all(&db_folder)?;
         let db_location = db_folder.join(post.get_file_from_hex(hex));
@@ -132,10 +132,10 @@ impl Post {
         tags.join(",")
     }
 
-    pub fn delete(self, config: &Config, db: &Database) -> Result<(), Box<dyn Error>> {
+    pub fn delete(self, db: &Database) -> Result<(), Box<dyn Error>> {
         let hex = Hash::from(self.blake3_bytes).to_hex();
         let file_path = self
-            .get_folder_from_hex(hex, config)
+            .get_folder_from_hex(hex, &db.config)
             .join(self.get_file_from_hex(hex));
 
         db.remove_post(self.id)?;
