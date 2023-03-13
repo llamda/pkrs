@@ -51,7 +51,7 @@ impl Post {
         post.id = row_id;
 
         let hex = hash.to_hex();
-        let db_folder = post.get_folder_from_hex(hex, &config);
+        let db_folder = post.get_folder_from_hex(hex, config);
 
         fs::create_dir_all(&db_folder)?;
         let db_location = db_folder.join(post.get_file_from_hex(hex));
@@ -67,7 +67,7 @@ impl Post {
         }
 
         self.tags.insert(tag.to_string());
-        let tag_id = db.get_or_create_tag(&tag)?;
+        let tag_id = db.get_or_create_tag(tag)?;
         Ok(db.insert_tagging(self.id, tag_id)?)
     }
 
@@ -77,7 +77,7 @@ impl Post {
         db: &mut Database,
     ) -> Result<(), Box<dyn Error>> {
         for tag in tags {
-            self.add_tag(&tag, &db)?;
+            self.add_tag(tag, db)?;
         }
         Ok(())
     }
@@ -99,7 +99,7 @@ impl Post {
         db: &mut Database,
     ) -> Result<(), Box<dyn Error>> {
         for tag in tags {
-            self.remove_tag(&tag, &db)?;
+            self.remove_tag(tag, db)?;
         }
         Ok(())
     }
@@ -113,7 +113,7 @@ impl Post {
     pub fn get_file_from_hex(&self, hex: ArrayString<64>) -> PathBuf {
         let mut path = Path::new(hex.as_ref()).to_owned();
         if let Some(ext) = &self.extension {
-            path.set_extension(&ext);
+            path.set_extension(ext);
         }
         path
     }
@@ -135,7 +135,7 @@ impl Post {
     pub fn delete(self, config: &Config, db: &Database) -> Result<(), Box<dyn Error>> {
         let hex = Hash::from(self.blake3_bytes).to_hex();
         let file_path = self
-            .get_folder_from_hex(hex, &config)
+            .get_folder_from_hex(hex, config)
             .join(self.get_file_from_hex(hex));
 
         db.remove_post(self.id)?;

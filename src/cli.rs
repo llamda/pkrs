@@ -63,7 +63,7 @@ enum RemoveType {
 }
 
 impl Cli {
-    pub fn run(config: &Config, mut db: &mut Database) -> Result<(), Box<dyn Error>> {
+    pub fn run(config: &Config, db: &mut Database) -> Result<(), Box<dyn Error>> {
         let cli = Cli::parse();
         db.begin()?;
 
@@ -71,7 +71,7 @@ impl Cli {
             Mode::Add { mode } => match mode {
                 AddType::File { files } => {
                     for file in files {
-                        let post = Post::new(&file, &config, &mut db)?;
+                        let post = Post::new(&file, config, db)?;
                         println!("{} -> Post #{}", file, post.id);
                     }
                 }
@@ -87,7 +87,7 @@ impl Cli {
                     for post_id in post_ids {
                         let post = db.get_post_id(post_id)?;
                         println!("Removing post #{}", post.id);
-                        post.delete(&config, &db)?;
+                        post.delete(config, db)?;
                     }
                 }
                 RemoveType::Tag { tags } => {
@@ -106,8 +106,8 @@ impl Cli {
                 let tag_count = post.tags.len();
 
                 let (_, action) = match remove {
-                    true => (post.remove_tags(&tags, &mut db), "Removed"),
-                    false => (post.add_tags(&tags, &mut db), "Added"),
+                    true => (post.remove_tags(&tags, db), "Removed"),
+                    false => (post.add_tags(&tags, db), "Added"),
                 };
                 let diff = tag_count.abs_diff(post.tags.len());
                 let plural = match diff {

@@ -21,7 +21,7 @@ impl Database {
     }
 
     fn create_tables(&self) -> Result<()> {
-        Ok(self.conn.execute_batch(
+        self.conn.execute_batch(
             "
 
             CREATE TABLE IF NOT EXISTS posts (
@@ -41,15 +41,15 @@ impl Database {
             UNIQUE(post_id, tag_id) ON CONFLICT IGNORE);
 
         ",
-        )?)
+        )
     }
 
     pub fn begin(&self) -> Result<()> {
-        Ok(self.conn.execute_batch("BEGIN TRANSACTION;")?)
+        self.conn.execute_batch("BEGIN TRANSACTION;")
     }
 
     pub fn commit(&self) -> Result<()> {
-        Ok(self.conn.execute_batch("COMMIT TRANSACTION;")?)
+        self.conn.execute_batch("COMMIT TRANSACTION;")
     }
 
     pub fn insert_post(&self, post: &Post) -> Result<i64, Error> {
@@ -111,17 +111,17 @@ impl Database {
     }
 
     pub fn get_post_id(&self, post_id: i64) -> Result<Post, Error> {
-        Ok(self
+        self
             .conn
             .prepare_cached("SELECT * FROM posts WHERE (post_id) = (?1)")?
-            .query_row([post_id], |row| self.row_to_post(row))?)
+            .query_row([post_id], |row| self.row_to_post(row))
     }
 
     pub fn get_post_blake3(&self, blake3_bytes: [u8; 32]) -> Result<Post, Error> {
-        Ok(self
+        self
             .conn
             .prepare_cached("SELECT * FROM posts WHERE (blake3) = (?1)")?
-            .query_row([blake3_bytes], |row| self.row_to_post(row))?)
+            .query_row([blake3_bytes], |row| self.row_to_post(row))
     }
 
     fn row_to_post(&self, row: &Row) -> Result<Post, Error> {
@@ -136,10 +136,10 @@ impl Database {
     }
 
     pub fn get_tag_id(&self, name: &String) -> Result<i64, Error> {
-        Ok(self
+        self
             .conn
             .prepare_cached("SELECT tag_id FROM tags WHERE (tag_name) = (?1)")?
-            .query_row([name], |row| row.get(0))?)
+            .query_row([name], |row| row.get(0))
     }
 
     pub fn get_or_create_tag(&self, name: &String) -> Result<i64, Error> {
