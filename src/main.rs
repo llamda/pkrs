@@ -3,6 +3,7 @@ mod config;
 mod db;
 mod hash;
 mod post;
+mod thumbnail;
 use cli::Cli;
 use config::Config;
 use db::Database;

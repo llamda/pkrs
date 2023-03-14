@@ -10,6 +10,9 @@ pub struct Config {
 
     #[serde(default = "db_file_path")]
     pub db_file_path: String,
+
+    #[serde(default = "db_thumbnail_path")]
+    pub db_thumbnail_path: String,
 }
 
 fn db_sql_path() -> String {
@@ -18,6 +21,10 @@ fn db_sql_path() -> String {
 
 fn db_file_path() -> String {
     "./db/files".to_string()
+}
+
+fn db_thumbnail_path() -> String {
+    "./db/thumbnails".to_string()
 }
 
 impl Config {

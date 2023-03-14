@@ -1,6 +1,6 @@
 use crate::db::Database;
 use crate::hash;
-use crate::Config;
+use crate::thumbnail;
 use arrayvec::ArrayString;
 use blake3::Hash;
 use std::collections::HashSet;
@@ -50,13 +50,14 @@ impl Post {
 
         post.id = row_id;
 
-        let hex = hash.to_hex();
-        let db_folder = post.get_folder_from_hex(hex, &db.config);
+        let file_location = post.get_db_file(db);
+        fs::create_dir_all(file_location.parent().unwrap())?;
+        fs::copy(path, &file_location)?;
 
-        fs::create_dir_all(&db_folder)?;
-        let db_location = db_folder.join(post.get_file_from_hex(hex));
-
-        fs::copy(path, db_location)?;
+        let thumbnail_location = post.get_db_thumbnail(db);
+        if let Err(e) = thumbnail::create(&file_location, &thumbnail_location) {
+            eprintln!("{}", e);
+        }
 
         Ok(post)
     }
@@ -104,26 +105,33 @@ impl Post {
         Ok(())
     }
 
-    pub fn get_folder_from_hex(&self, hex: ArrayString<64>, config: &Config) -> PathBuf {
-        Path::new(&config.db_file_path)
-            .join(hex.get(0..2).unwrap())
-            .join(hex.get(2..4).unwrap())
+    fn get_hash(&self) -> Hash {
+        Hash::from(self.blake3_bytes)
     }
 
-    pub fn get_file_from_hex(&self, hex: ArrayString<64>) -> PathBuf {
-        let mut path = Path::new(hex.as_ref()).to_owned();
+    pub fn get_db_file(&self, db: &Database) -> PathBuf {
+        let hex = self.get_hash().to_hex();
+        let mut path = Path::new(&db.config.db_file_path)
+            .join(self.get_db_folder(hex))
+            .join(hex.as_str());
+
         if let Some(ext) = &self.extension {
             path.set_extension(ext);
         }
         path
     }
 
-    pub fn get_file(&self) -> PathBuf {
-        self.get_file_from_hex(Hash::from(self.blake3_bytes).to_hex())
+    pub fn get_db_thumbnail(&self, db: &Database) -> PathBuf {
+        let hex = self.get_hash().to_hex();
+        let mut path = Path::new(&db.config.db_thumbnail_path)
+            .join(self.get_db_folder(hex))
+            .join(hex.as_str());
+        path.set_extension("jpg");
+        path
     }
 
-    pub fn get_file_string(&self) -> String {
-        self.get_file().into_os_string().into_string().unwrap()
+    fn get_db_folder(&self, hex: ArrayString<64>) -> PathBuf {
+        Path::new(&hex[0..2]).join(&hex[2..4])
     }
 
     pub fn get_tag_string(&self) -> String {
@@ -133,13 +141,8 @@ impl Post {
     }
 
     pub fn delete(self, db: &Database) -> Result<(), Box<dyn Error>> {
-        let hex = Hash::from(self.blake3_bytes).to_hex();
-        let file_path = self
-            .get_folder_from_hex(hex, &db.config)
-            .join(self.get_file_from_hex(hex));
-
         db.remove_post(self.id)?;
-        Ok(fs::remove_file(file_path)?)
+        Ok(fs::remove_file(self.get_db_file(db))?)
     }
 }
 
@@ -147,9 +150,13 @@ impl fmt::Display for Post {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Post {{\n  id:{}\n  file: {}\n  tags: [{}]\n}}",
+            "Post {{\n  id:{}\n  file: {}{}\n  tags: [{}]\n}}",
             self.id,
-            self.get_file_string(),
+            self.get_hash().to_hex(),
+            self.extension
+                .clone()
+                .map(|e| format!(".{}", e))
+                .unwrap_or(String::new()),
             self.get_tag_string(),
         )
     }
