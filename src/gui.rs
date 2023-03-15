@@ -45,23 +45,15 @@ fn load_thumbnail(ctx: egui::Context, path: &Path) -> egui::TextureHandle {
     let image = image::io::Reader::open(path).unwrap().decode().unwrap();
     let size = [image.width() as _, image.height() as _];
     let image = egui::ColorImage::from_rgb(size, image.to_rgb8().as_flat_samples().as_slice());
-
     ctx.load_texture("thumbnail", image, Default::default())
 }
 
 impl PostThumbnail {
     fn ui(&mut self, ui: &mut egui::Ui, db: &Database) {
         let texture = self.texture.get_or_insert_with(|| {
-            let (sender, promise) = Promise::new();
             let path = self.post.get_db_thumbnail(db);
             let ctx = ui.ctx().clone();
-
-            let _thread = Promise::spawn_thread("load_thumbnail", move || {
-                let texture = load_thumbnail(ctx, &path);
-                sender.send(texture);
-            });
-
-            promise
+            Promise::spawn_thread("load_thumbnail", move || load_thumbnail(ctx, &path))
         });
 
         match texture.ready() {
