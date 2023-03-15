@@ -2,7 +2,7 @@ use std::error::Error;
 
 use clap::{Parser, Subcommand};
 
-use crate::{db::Database, post::Post};
+use crate::{db::Database, gui, post::Post};
 
 #[derive(Parser, Debug)]
 #[clap(trailing_var_arg = true)]
@@ -36,6 +36,7 @@ enum Mode {
         #[arg(required = true, allow_hyphen_values = true)]
         tags: Vec<String>,
     },
+    Gui,
 }
 
 #[derive(Subcommand, Debug)]
@@ -63,38 +64,45 @@ enum RemoveType {
 }
 
 impl Cli {
-    pub fn run(db: &mut Database) -> Result<(), Box<dyn Error>> {
+    pub fn run(mut db: Database) -> Result<(), Box<dyn Error>> {
         let cli = Cli::parse();
-        db.begin()?;
 
         match cli.command {
             Mode::Add { mode } => match mode {
                 AddType::File { files } => {
+                    db.begin()?;
                     for file in files {
-                        let post = Post::new(&file, db)?;
+                        let post = Post::new(&file, &mut db)?;
                         println!("{} -> Post #{}", file, post.id);
                     }
+                    db.commit()?;
                 }
                 AddType::Tag { tags } => {
+                    db.begin()?;
                     for tag in tags {
                         let tag_id = db.get_or_create_tag(&tag)?;
                         println!("{} -> Tag #{}", tag, tag_id);
                     }
+                    db.commit()?;
                 }
             },
             Mode::Remove { mode } => match mode {
                 RemoveType::File { post_ids } => {
+                    db.begin()?;
                     for post_id in post_ids {
                         let post = db.get_post_id(post_id)?;
                         println!("Removing post #{}", post.id);
-                        post.delete(db)?;
+                        post.delete(&db)?;
                     }
+                    db.commit()?;
                 }
                 RemoveType::Tag { tags } => {
+                    db.begin()?;
                     for tag in tags {
                         let tag_id = db.remove_tag(&tag)?;
                         println!("Removing '{}' #{}", tag, tag_id);
                     }
+                    db.commit()?;
                 }
             },
             Mode::Tag {
@@ -105,10 +113,13 @@ impl Cli {
                 let mut post = db.get_post_id(post_id)?;
                 let tag_count = post.tags.len();
 
+                db.begin()?;
                 let (_, action) = match remove {
-                    true => (post.remove_tags(&tags, db), "Removed"),
-                    false => (post.add_tags(&tags, db), "Added"),
+                    true => (post.remove_tags(&tags, &mut db), "Removed"),
+                    false => (post.add_tags(&tags, &mut db), "Added"),
                 };
+                db.commit()?;
+
                 let diff = tag_count.abs_diff(post.tags.len());
                 let plural = match diff {
                     1 => "",
@@ -140,9 +151,12 @@ impl Cli {
                     println!("{}", post);
                 }
             }
+
+            Mode::Gui => {
+                gui::MyApp::create(db)?;
+            }
         }
 
-        db.commit()?;
         Ok(())
     }
 }

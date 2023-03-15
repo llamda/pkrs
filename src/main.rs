@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod db;
+mod gui;
 mod hash;
 mod post;
 mod thumbnail;
@@ -10,9 +11,9 @@ use db::Database;
 
 fn main() {
     let config = Config::get();
-    let mut db = Database::connect(config);
+    let db = Database::connect(config);
 
-    if let Err(e) = Cli::run(&mut db) {
+    if let Err(e) = Cli::run(db) {
         eprintln!("{:#?}", e);
     }
 }

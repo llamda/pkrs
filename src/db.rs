@@ -204,4 +204,17 @@ impl Database {
 
         Ok(posts)
     }
+
+    pub fn all(&self) -> Result<Vec<Post>, Error> {
+        let mut stmt = self
+            .conn
+            .prepare_cached("SELECT * FROM posts ORDER BY post_id DESC")?;
+        let rows = stmt.query_map([], |row| self.row_to_post(row))?;
+
+        let mut posts = Vec::new();
+        for post in rows {
+            posts.push(post?);
+        }
+        Ok(posts)
+    }
 }
