@@ -153,7 +153,7 @@ impl Cli {
             }
 
             Mode::Gui => {
-                gui::MyApp::create(db)?;
+                gui::run(db)?;
             }
         }
 

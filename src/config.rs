@@ -3,7 +3,7 @@ use std::{fs, io, path::Path};
 
 const PATH: &str = "config.toml";
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
     #[serde(default = "db_sql_path")]
     pub db_sql_path: String,

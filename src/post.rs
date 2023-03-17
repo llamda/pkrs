@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::db::Database;
 use crate::hash;
 use crate::thumbnail;
@@ -50,11 +51,11 @@ impl Post {
 
         post.id = row_id;
 
-        let file_location = post.get_db_file(db);
+        let file_location = post.get_db_file(&db.config);
         fs::create_dir_all(file_location.parent().unwrap())?;
         fs::copy(path, &file_location)?;
 
-        let thumbnail_location = post.get_db_thumbnail(db);
+        let thumbnail_location = post.get_db_thumbnail(&db.config);
         if let Err(e) = thumbnail::create(&file_location, &thumbnail_location) {
             eprintln!("{}", e);
         }
@@ -109,9 +110,9 @@ impl Post {
         Hash::from(self.blake3_bytes)
     }
 
-    pub fn get_db_file(&self, db: &Database) -> PathBuf {
+    pub fn get_db_file(&self, config: &Config) -> PathBuf {
         let hex = self.get_hash().to_hex();
-        let mut path = Path::new(&db.config.db_file_path)
+        let mut path = Path::new(&config.db_file_path)
             .join(self.get_db_folder(hex))
             .join(hex.as_str());
 
@@ -121,9 +122,9 @@ impl Post {
         path
     }
 
-    pub fn get_db_thumbnail(&self, db: &Database) -> PathBuf {
+    pub fn get_db_thumbnail(&self, config: &Config) -> PathBuf {
         let hex = self.get_hash().to_hex();
-        let mut path = Path::new(&db.config.db_thumbnail_path)
+        let mut path = Path::new(&config.db_thumbnail_path)
             .join(self.get_db_folder(hex))
             .join(hex.as_str());
         path.set_extension("jpg");
@@ -142,7 +143,7 @@ impl Post {
 
     pub fn delete(self, db: &Database) -> Result<(), Box<dyn Error>> {
         db.remove_post(self.id)?;
-        Ok(fs::remove_file(self.get_db_file(db))?)
+        Ok(fs::remove_file(self.get_db_file(&db.config))?)
     }
 }
 
