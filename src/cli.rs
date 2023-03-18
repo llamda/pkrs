@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, path::Path};
 
 use clap::{Parser, Subcommand};
 
@@ -72,7 +72,7 @@ impl Cli {
                 AddType::File { files } => {
                     db.begin()?;
                     for file in files {
-                        let post = Post::new(&file, &mut db)?;
+                        let post = Post::new(Path::new(&file), &mut db)?;
                         println!("{} -> Post #{}", file, post.id);
                     }
                     db.commit()?;

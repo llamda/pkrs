@@ -20,8 +20,7 @@ pub struct Post {
 }
 
 impl Post {
-    pub fn new(path: &String, db: &mut Database) -> Result<Self, Box<dyn Error>> {
-        let path = Path::new(path);
+    pub fn new(path: &Path, db: &mut Database) -> Result<Self, Box<dyn Error>> {
         let hash = hash::hash_file_blake3(path)?;
 
         let extension = path

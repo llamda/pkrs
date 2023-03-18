@@ -46,6 +46,9 @@ impl MyApp {
             rx,
             config,
             posts: vec![],
+            progress: (0.0, 0.0),
+            show_progress: false,
+            progress_message: None,
         };
 
         app.tx.send(FromGUI::RequestAllPosts).unwrap();
@@ -58,6 +61,9 @@ pub struct MyApp {
     rx: Receiver<FromWorker>,
     config: Config,
     posts: Vec<PostThumbnail>,
+    progress: (f32, f32),
+    show_progress: bool,
+    progress_message: Option<String>,
 }
 
 impl MyApp {
@@ -65,6 +71,9 @@ impl MyApp {
         match self.rx.try_recv()? {
             FromWorker::RequestContext => self.tx.send(FromGUI::SendContext(ctx.clone()))?,
             FromWorker::SetPosts(posts) => self.posts = posts,
+            FromWorker::ShowProgress(b) => self.show_progress = b,
+            FromWorker::SetProgress(current, total) => self.progress = (current, total),
+            FromWorker::SetProgressMessage(message) => self.progress_message = message,
         };
 
         Ok(())
@@ -74,6 +83,18 @@ impl MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let _ = self.read_channel(ctx);
+
+        if self.show_progress {
+            egui::TopBottomPanel::bottom("loading_bar").show(ctx, |ui| {
+                let mut progress =
+                    egui::ProgressBar::new(self.progress.0 / self.progress.1).show_percentage();
+
+                if let Some(msg) = &self.progress_message {
+                    progress = progress.text(msg);
+                }
+                ui.add(progress);
+            });
+        }
 
         egui::SidePanel::right("post_panel")
             .resizable(true)
@@ -92,10 +113,10 @@ impl eframe::App for MyApp {
 
                         for y in row_range {
                             ui.horizontal(|ui| {
-                                for x in (0..columns).rev() {
-                                    let n = self.posts.len() - y * columns + x;
+                                for x in 0..columns {
+                                    let n = self.posts.len() as i64 - (columns * y + x + 1) as i64;
 
-                                    if let Some(thumbnail) = self.posts.get_mut(n) {
+                                    if let Some(thumbnail) = self.posts.get_mut(n as usize) {
                                         thumbnail.ui(ui, &self.config);
                                     }
                                 }
@@ -106,6 +127,13 @@ impl eframe::App for MyApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.label("tag panel");
+        });
+
+        ctx.input(|i| {
+            if !i.raw.dropped_files.is_empty() {
+                let files = i.raw.dropped_files.clone();
+                self.tx.send(FromGUI::RequestCreateNewPosts(files)).unwrap();
+            }
         });
     }
 }
