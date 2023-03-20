@@ -35,13 +35,6 @@ impl App {
         rx: Receiver<FromWorker>,
         config: Config,
     ) -> Result<(), eframe::Error> {
-        let options = eframe::NativeOptions {
-            drag_and_drop_support: true,
-            centered: true,
-            initial_window_size: Some(egui::vec2(1280.0, 720.0)),
-            ..Default::default()
-        };
-
         let app = App {
             tx,
             rx,
@@ -53,6 +46,17 @@ impl App {
             search: String::new(),
             focus_search: false,
             settings: Default::default(),
+        };
+
+        let options = eframe::NativeOptions {
+            drag_and_drop_support: true,
+            centered: !app.settings.fullscreen,
+            fullscreen: app.settings.fullscreen,
+            initial_window_size: Some(egui::vec2(
+                app.settings.window_size.0,
+                app.settings.window_size.1,
+            )),
+            ..Default::default()
         };
 
         app.tx.send(FromGUI::RequestAllPosts).unwrap();
@@ -76,6 +80,7 @@ pub struct App {
 struct AppSettings {
     window_size: (f32, f32),
     main_panel_width: f32,
+    fullscreen: bool,
 }
 
 impl Default for AppSettings {
@@ -85,6 +90,7 @@ impl Default for AppSettings {
         Self {
             window_size: (width, height),
             main_panel_width: width * 0.8,
+            fullscreen: false,
         }
     }
 }
@@ -183,6 +189,11 @@ impl eframe::App for App {
             if !i.raw.dropped_files.is_empty() {
                 let files = i.raw.dropped_files.clone();
                 self.tx.send(FromGUI::RequestCreateNewPosts(files)).unwrap();
+            }
+
+            if i.key_pressed(Key::F11) {
+                self.settings.fullscreen = !self.settings.fullscreen;
+                frame.set_fullscreen(self.settings.fullscreen);
             }
         });
     }
