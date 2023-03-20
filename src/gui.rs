@@ -10,14 +10,14 @@ use crate::{
     db::Database,
     message::{FromGUI, FromWorker},
     post::Post,
-    thumbnail::THUMBNAIL_SIZE,
+    thumbnail,
     worker::Worker,
 };
 use eframe::egui;
 use poll_promise::Promise;
 
-static THUMBNAIL: f32 = THUMBNAIL_SIZE as f32;
-static THUMBNAIL_VEC2: [f32; 2] = [THUMBNAIL, THUMBNAIL];
+static THUMBNAIL_SIZE: f32 = thumbnail::THUMBNAIL_SIZE as f32;
+static THUMBNAIL_VEC2: [f32; 2] = [THUMBNAIL_SIZE, THUMBNAIL_SIZE];
 
 pub fn run(db: Database) -> Result<(), eframe::Error> {
     let (from_worker, to_gui) = mpsc::channel::<FromWorker>();
@@ -99,16 +99,16 @@ impl eframe::App for MyApp {
         egui::SidePanel::right("post_panel")
             .resizable(true)
             .default_width(1280.0 * 0.8)
-            .width_range(THUMBNAIL..=frame.info().window_info.size[0] - 200.0)
+            .width_range(THUMBNAIL_SIZE..=frame.info().window_info.size[0] - 200.0)
             .show(ctx, |ui| {
                 ui.set_width(ui.available_width());
 
-                let columns = (ui.available_width() / THUMBNAIL).floor() as _;
+                let columns = (ui.available_width() / THUMBNAIL_SIZE).floor() as _;
                 let rows = (self.posts.len() + columns - 1) / columns;
 
                 egui::ScrollArea::vertical()
                     .drag_to_scroll(false)
-                    .show_rows(ui, THUMBNAIL, rows, |ui, row_range| {
+                    .show_rows(ui, THUMBNAIL_SIZE, rows, |ui, row_range| {
                         ui.set_width(ui.available_width());
 
                         for y in row_range {
