@@ -1,5 +1,6 @@
 use std::{
     error::Error,
+    ops::RangeInclusive,
     path::PathBuf,
     sync::mpsc::{self, Receiver, Sender},
     thread,
@@ -13,7 +14,7 @@ use crate::{
     thumbnail,
     worker::Worker,
 };
-use eframe::egui;
+use eframe::egui::{self, Context};
 use poll_promise::Promise;
 
 static THUMBNAIL_SIZE: f32 = thumbnail::THUMBNAIL_SIZE as f32;
@@ -25,10 +26,10 @@ pub fn run(db: Database) -> Result<(), eframe::Error> {
     let config = db.config.clone();
 
     thread::spawn(move || Worker::create(from_worker, to_worker, db));
-    MyApp::create(from_gui, to_gui, config)
+    App::create(from_gui, to_gui, config)
 }
 
-impl MyApp {
+impl App {
     fn create(
         tx: Sender<FromGUI>,
         rx: Receiver<FromWorker>,
@@ -41,7 +42,7 @@ impl MyApp {
             ..Default::default()
         };
 
-        let app = MyApp {
+        let app = App {
             tx,
             rx,
             config,
@@ -49,6 +50,7 @@ impl MyApp {
             progress: (0.0, 0.0),
             show_progress: false,
             progress_message: None,
+            settings: Default::default(),
         };
 
         app.tx.send(FromGUI::RequestAllPosts).unwrap();
@@ -56,7 +58,7 @@ impl MyApp {
     }
 }
 
-pub struct MyApp {
+pub struct App {
     tx: Sender<FromGUI>,
     rx: Receiver<FromWorker>,
     config: Config,
@@ -64,9 +66,26 @@ pub struct MyApp {
     progress: (f32, f32),
     show_progress: bool,
     progress_message: Option<String>,
+    settings: AppSettings,
 }
 
-impl MyApp {
+struct AppSettings {
+    window_size: (f32, f32),
+    main_panel_width: f32,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        let width = 1280.0;
+        let height = 720.0;
+        Self {
+            window_size: (width, height),
+            main_panel_width: width * 0.8,
+        }
+    }
+}
+
+impl App {
     fn read_channel(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn Error>> {
         match self.rx.try_recv()? {
             FromWorker::RequestContext => self.tx.send(FromGUI::SendContext(ctx.clone()))?,
@@ -80,7 +99,7 @@ impl MyApp {
     }
 }
 
-impl eframe::App for MyApp {
+impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let _ = self.read_channel(ctx);
 
@@ -96,12 +115,18 @@ impl eframe::App for MyApp {
             });
         }
 
+        let panel_width = match self.changed_size(ctx) {
+            true => self.scaled_panel_width(),
+            false => self.default_panel_width(),
+        };
+
         egui::SidePanel::right("post_panel")
             .resizable(true)
-            .default_width(1280.0 * 0.8)
-            .width_range(THUMBNAIL_SIZE..=frame.info().window_info.size[0] - 200.0)
+            .default_width(self.settings.main_panel_width)
+            .width_range(panel_width)
             .show(ctx, |ui| {
                 ui.set_width(ui.available_width());
+                self.settings.main_panel_width = self.settings.window_size.0 - ui.available_width();
 
                 let columns = (ui.available_width() / THUMBNAIL_SIZE).floor() as _;
                 let rows = (self.posts.len() + columns - 1) / columns;
@@ -135,6 +160,27 @@ impl eframe::App for MyApp {
                 self.tx.send(FromGUI::RequestCreateNewPosts(files)).unwrap();
             }
         });
+    }
+}
+
+impl App {
+    fn changed_size(&mut self, ctx: &Context) -> bool {
+        let screen = ctx.screen_rect();
+        let (old_width, old_height) = self.settings.window_size;
+        if old_width != screen.width() || old_height != screen.height() {
+            self.settings.window_size = (screen.width(), screen.height());
+            return true;
+        }
+        false
+    }
+
+    fn scaled_panel_width(&self) -> RangeInclusive<f32> {
+        let size = self.settings.window_size.0 - self.settings.main_panel_width;
+        size..=size
+    }
+
+    fn default_panel_width(&self) -> RangeInclusive<f32> {
+        THUMBNAIL_SIZE..=self.settings.window_size.0 - 200.0
     }
 }
 
