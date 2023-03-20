@@ -14,7 +14,7 @@ use crate::{
     thumbnail,
     worker::Worker,
 };
-use eframe::egui::{self, Context};
+use eframe::egui::{self, Context, Key};
 use poll_promise::Promise;
 
 static THUMBNAIL_SIZE: f32 = thumbnail::THUMBNAIL_SIZE as f32;
@@ -50,6 +50,8 @@ impl App {
             progress: (0.0, 0.0),
             show_progress: false,
             progress_message: None,
+            search: String::new(),
+            focus_search: false,
             settings: Default::default(),
         };
 
@@ -66,6 +68,8 @@ pub struct App {
     progress: (f32, f32),
     show_progress: bool,
     progress_message: Option<String>,
+    search: String,
+    focus_search: bool,
     settings: AppSettings,
 }
 
@@ -151,6 +155,27 @@ impl eframe::App for App {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            let search_bar = egui::TextEdit::singleline(&mut self.search)
+                .hint_text("Search")
+                .desired_width(f32::INFINITY)
+                .show(ui)
+                .response;
+
+            ui.input(|i| {
+                if i.key_pressed(Key::I) && !search_bar.has_focus() {
+                    self.focus_search = true;
+                }
+
+                if i.key_pressed(Key::Enter) && search_bar.lost_focus() {
+                    println!("Search: {}", self.search);
+                }
+            });
+
+            if self.focus_search {
+                search_bar.request_focus();
+                self.focus_search = false;
+            }
+
             ui.label("tag panel");
         });
 
