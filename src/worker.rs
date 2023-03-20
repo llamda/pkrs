@@ -41,8 +41,8 @@ impl Worker {
     }
 
     pub fn run(&mut self) -> Result<(), Box<dyn Error>> {
-        for recieved in &self.rx {
-            match recieved {
+        for received in &self.rx {
+            match received {
                 FromGUI::SendContext(ctx) => self.ctx = Some(ctx),
 
                 FromGUI::RequestAllPosts => {
