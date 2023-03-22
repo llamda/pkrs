@@ -10,5 +10,6 @@ pub enum FromWorker {
 pub enum FromGUI {
     SendContext(eframe::egui::Context),
     RequestAllPosts,
-    RequestCreateNewPosts(Vec<eframe::egui::DroppedFile>),
+    RequestDroppedNewPosts(Vec<eframe::egui::DroppedFile>),
+    RequestPickedNewPosts(Vec<std::path::PathBuf>),
 }

@@ -1,4 +1,5 @@
 use std::{
+    cmp::max,
     error::Error,
     ops::RangeInclusive,
     path::PathBuf,
@@ -14,7 +15,7 @@ use crate::{
     thumbnail,
     worker::Worker,
 };
-use eframe::egui::{self, Context, Key};
+use eframe::egui::{self, Context, Key, Visuals};
 use poll_promise::Promise;
 
 static THUMBNAIL_SIZE: f32 = thumbnail::THUMBNAIL_SIZE as f32;
@@ -81,6 +82,7 @@ struct AppSettings {
     window_size: (f32, f32),
     main_panel_width: f32,
     fullscreen: bool,
+    dark_mode: bool,
 }
 
 impl Default for AppSettings {
@@ -91,6 +93,7 @@ impl Default for AppSettings {
             window_size: (width, height),
             main_panel_width: width * 0.8,
             fullscreen: false,
+            dark_mode: true,
         }
     }
 }
@@ -125,6 +128,53 @@ impl eframe::App for App {
             });
         }
 
+        egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
+            egui::menu::bar(ui, |ui| {
+                ui.set_height(24.0);
+
+                ui.menu_button("File", |ui| {
+                    if ui.button("Open File...").clicked() {
+                        if let Some(paths) = rfd::FileDialog::new().pick_files() {
+                            self.tx.send(FromGUI::RequestPickedNewPosts(paths)).unwrap();
+                        }
+                        ui.close_menu();
+                    }
+                    if ui.button("Open Folder...").clicked() {
+                        if let Some(paths) = rfd::FileDialog::new().pick_folders() {
+                            self.tx.send(FromGUI::RequestPickedNewPosts(paths)).unwrap();
+                        }
+                        ui.close_menu();
+                    }
+                    ui.separator();
+                    if ui.button("Exit").clicked() {
+                        frame.close();
+                    }
+                });
+
+                ui.menu_button("View", |ui| {
+                    if ui.button("All Posts").clicked() {
+                        self.tx.send(FromGUI::RequestAllPosts).unwrap();
+                        ui.close_menu();
+                    }
+
+                    ui.separator();
+                    if ui.button("Toggle Full Sceeen (F11)").clicked() {
+                        self.toggle_fullscreen(frame);
+                        ui.close_menu();
+                    }
+
+                    let (message, visuals) = match self.settings.dark_mode {
+                        true => ("Light", Visuals::light()),
+                        false => ("Dark", Visuals::dark()),
+                    };
+                    if ui.button(format!("Enable {} Mode", message)).clicked() {
+                        ctx.set_visuals(visuals);
+                        self.settings.dark_mode = !self.settings.dark_mode;
+                    }
+                });
+            });
+        });
+
         let panel_width = match self.changed_size(ctx) {
             true => self.scaled_panel_width(),
             false => self.default_panel_width(),
@@ -138,7 +188,7 @@ impl eframe::App for App {
                 ui.set_width(ui.available_width());
                 self.settings.main_panel_width = self.settings.window_size.0 - ui.available_width();
 
-                let columns = (ui.available_width() / THUMBNAIL_SIZE).floor() as _;
+                let columns = max((ui.available_width() / THUMBNAIL_SIZE).floor() as _, 1);
                 let rows = (self.posts.len() + columns - 1) / columns;
 
                 egui::ScrollArea::vertical()
@@ -188,12 +238,13 @@ impl eframe::App for App {
         ctx.input(|i| {
             if !i.raw.dropped_files.is_empty() {
                 let files = i.raw.dropped_files.clone();
-                self.tx.send(FromGUI::RequestCreateNewPosts(files)).unwrap();
+                self.tx
+                    .send(FromGUI::RequestDroppedNewPosts(files))
+                    .unwrap();
             }
 
             if i.key_pressed(Key::F11) {
-                self.settings.fullscreen = !self.settings.fullscreen;
-                frame.set_fullscreen(self.settings.fullscreen);
+                self.toggle_fullscreen(frame);
             }
         });
     }
@@ -217,6 +268,11 @@ impl App {
 
     fn default_panel_width(&self) -> RangeInclusive<f32> {
         THUMBNAIL_SIZE..=self.settings.window_size.0 - 200.0
+    }
+
+    fn toggle_fullscreen(&mut self, frame: &mut eframe::Frame) {
+        self.settings.fullscreen = !self.settings.fullscreen;
+        frame.set_fullscreen(self.settings.fullscreen);
     }
 }
 
