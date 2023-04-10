@@ -56,7 +56,7 @@ impl Post {
 
         let thumbnail_location = post.get_db_thumbnail(&db.config);
         if let Err(e) = thumbnail::create(&file_location, &thumbnail_location) {
-            eprintln!("{}", e);
+            eprintln!("{} {}", e, post.original_name);
         }
 
         Ok(post)
