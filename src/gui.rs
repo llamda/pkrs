@@ -278,7 +278,7 @@ impl App {
 
 pub struct PostThumbnail {
     post: Post,
-    texture: Option<Promise<egui::TextureHandle>>,
+    texture: Option<Promise<Option<egui::TextureHandle>>>,
 }
 
 impl From<Post> for PostThumbnail {
@@ -291,37 +291,40 @@ impl From<Post> for PostThumbnail {
 }
 
 impl PostThumbnail {
-    fn load_thumbnail(ctx: egui::Context, path: PathBuf) -> egui::TextureHandle {
-        let image = image::io::Reader::open(path).unwrap().decode().unwrap();
+    fn load_thumbnail(ctx: egui::Context, path: PathBuf) -> Option<egui::TextureHandle> {
+        let image = image::io::Reader::open(path).ok()?.decode().ok()?;
         let size = [image.width() as _, image.height() as _];
         let image = egui::ColorImage::from_rgb(size, image.to_rgb8().as_flat_samples().as_slice());
-        ctx.load_texture("thumbnail", image, Default::default())
+        Some(ctx.load_texture("thumbnail", image, Default::default()))
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, config: &Config) {
-        let texture = self.texture.get_or_insert_with(|| {
+        let has_thumbnail = self.texture.get_or_insert_with(|| {
             let ctx = ui.ctx().clone();
             let path = self.post.get_db_thumbnail(config);
             Promise::spawn_thread("load_thumbnail", move || Self::load_thumbnail(ctx, path))
         });
 
-        match texture.ready() {
+        match has_thumbnail.ready() {
             None => {
                 ui.add_sized(THUMBNAIL_VEC2, egui::Spinner::new());
             }
-            Some(texture) => {
-                let size = texture.size_vec2();
-
-                let button = ui
-                    .add_sized(
+            Some(thumbnail) => {
+                let info = format!("#{} {}", &self.post.id, &self.post.original_name);
+                let button = match thumbnail {
+                    None => ui.add_sized(
                         THUMBNAIL_VEC2,
-                        egui::ImageButton::new(texture, size).frame(false),
-                    )
-                    .on_hover_text_at_pointer(format!(
-                        "#{} {}",
-                        &self.post.id, &self.post.original_name
-                    ));
-
+                        egui::Button::new(info).frame(false).wrap(true),
+                    ),
+                    Some(texture) => {
+                        let size = texture.size_vec2();
+                        ui.add_sized(
+                            THUMBNAIL_VEC2,
+                            egui::ImageButton::new(texture, size).frame(false),
+                        )
+                        .on_hover_text_at_pointer(info)
+                    }
+                };
                 if button.double_clicked() {
                     opener::open(self.post.get_db_file(config)).unwrap();
                 }
