@@ -326,7 +326,10 @@ impl PostThumbnail {
                     }
                 };
                 if button.double_clicked() {
-                    opener::open(self.post.get_db_file(config)).unwrap();
+                    let file = &self.post.get_db_file(config);
+                    if let Err(e) = opener::open(file) {
+                        eprintln!("Failed to open {:?}\n{:#?}", file, e);
+                    }
                 }
             }
         }
