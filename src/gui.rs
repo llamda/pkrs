@@ -16,6 +16,7 @@ use crate::{
     worker::Worker,
 };
 use eframe::egui::{self, Context, Key, Visuals};
+use egui_extras::{Column, TableBuilder};
 use poll_promise::Promise;
 
 static THUMBNAIL_SIZE: f32 = thumbnail::THUMBNAIL_SIZE as f32;
@@ -45,6 +46,7 @@ impl App {
             show_progress: false,
             progress_message: None,
             search: String::new(),
+            selected: None,
             focus_search: false,
             settings: Default::default(),
         };
@@ -74,6 +76,7 @@ pub struct App {
     show_progress: bool,
     progress_message: Option<String>,
     search: String,
+    selected: Option<usize>,
     focus_search: bool,
     settings: AppSettings,
 }
@@ -106,6 +109,7 @@ impl App {
             FromWorker::ShowProgress(b) => self.show_progress = b,
             FromWorker::SetProgress(current, total) => self.progress = (current, total),
             FromWorker::SetProgressMessage(message) => self.progress_message = message,
+            FromWorker::SetSelected(selected) => self.selected = selected,
         };
 
         Ok(())
@@ -199,10 +203,11 @@ impl eframe::App for App {
                         for y in row_range {
                             ui.horizontal(|ui| {
                                 for x in 0..columns {
-                                    let n = self.posts.len() as i64 - (columns * y + x + 1) as i64;
+                                    let n = (self.posts.len() as i64 - (columns * y + x + 1) as i64)
+                                        as usize;
 
-                                    if let Some(thumbnail) = self.posts.get_mut(n as usize) {
-                                        thumbnail.ui(ui, &self.config);
+                                    if let Some(thumbnail) = self.posts.get_mut(n) {
+                                        thumbnail.ui(ui, &self.config, n, self.tx.clone());
                                     }
                                 }
                             });
@@ -232,9 +237,51 @@ impl eframe::App for App {
                 self.focus_search = false;
             }
 
-            ui.label("tag panel");
-        });
+            if let Some(index) = self.selected {
+                if let Some(thumbnail) = self.posts.get(index) {
+                    ui.set_width(ui.available_width());
 
+                    TableBuilder::new(ui)
+                        .striped(true)
+                        .resizable(false)
+                        .column(Column::remainder())
+                        .header(20.0, |mut header| {
+                            header.col(|ui| {
+                                ui.strong("Tags");
+                            });
+                        })
+                        .body(|mut body| {
+                            let mut tags = thumbnail
+                                .post
+                                .tags
+                                .clone()
+                                .into_iter()
+                                .collect::<Vec<String>>();
+                            tags.sort_unstable();
+
+                            for tag in tags {
+                                body.row(18.0, |mut row| {
+                                    let (_, col) = row.col(|ui| {
+                                        ui.label(tag.as_str());
+                                    });
+                                    col.context_menu(|ui| {
+                                        if ui.button("Remove").clicked() {
+                                            println!(
+                                                "Removed tag {} from #{}",
+                                                tag, thumbnail.post.id
+                                            );
+                                            ui.close_menu();
+                                        }
+                                    });
+                                });
+                            }
+                        });
+                }
+            }
+            egui::TopBottomPanel::bottom("tag_editor").show(ui.ctx(), |ui| {
+                ui.label("tag editor");
+            });
+        });
         ctx.input(|i| {
             if !i.raw.dropped_files.is_empty() {
                 let files = i.raw.dropped_files.clone();
@@ -298,7 +345,7 @@ impl PostThumbnail {
         Some(ctx.load_texture("thumbnail", image, Default::default()))
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, config: &Config) {
+    fn ui(&mut self, ui: &mut egui::Ui, config: &Config, index: usize, tx: Sender<FromGUI>) {
         let has_thumbnail = self.texture.get_or_insert_with(|| {
             let ctx = ui.ctx().clone();
             let path = self.post.get_db_thumbnail(config);
@@ -330,6 +377,10 @@ impl PostThumbnail {
                     if let Err(e) = opener::open(file) {
                         eprintln!("Failed to open {:?}\n{:#?}", file, e);
                     }
+                }
+
+                if button.clicked() {
+                    tx.send(FromGUI::SetSelected(Some(index))).unwrap();
                 }
             }
         }

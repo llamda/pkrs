@@ -60,6 +60,10 @@ impl Worker {
                 FromGUI::RequestPickedNewPosts(picked) => {
                     self.create_posts(picked)?;
                 }
+
+                FromGUI::SetSelected(selected) => {
+                    self.send(FromWorker::SetSelected(selected))?;
+                }
             }
         }
         Ok(())
