@@ -216,67 +216,77 @@ impl eframe::App for App {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            let search_bar = egui::TextEdit::singleline(&mut self.search)
-                .hint_text("Search")
-                .desired_width(f32::INFINITY)
-                .show(ui)
-                .response;
-
-            ui.input(|i| {
-                if i.key_pressed(Key::I) && !search_bar.has_focus() {
-                    self.focus_search = true;
-                }
-
-                if i.key_pressed(Key::Enter) && search_bar.lost_focus() {
-                    println!("Search: {}", self.search);
-                }
-            });
-
-            if self.focus_search {
-                search_bar.request_focus();
-                self.focus_search = false;
-            }
-
-            if let Some(index) = self.selected {
-                if let Some(thumbnail) = self.posts.get_mut(index) {
-                    let post = &mut thumbnail.post;
-                    ui.set_width(ui.available_width());
-
-                    TableBuilder::new(ui)
-                        .striped(true)
-                        .resizable(false)
-                        .column(Column::remainder())
-                        .header(20.0, |mut header| {
-                            header.col(|ui| {
-                                ui.strong("Tags");
-                            });
-                        })
-                        .body(|mut body| {
-                            let mut tags: Vec<String> =
-                                post.tags.clone().into_iter().collect::<Vec<String>>();
-                            tags.sort_unstable();
-
-                            for tag in tags {
-                                body.row(18.0, |mut row| {
-                                    row.col(|ui| {
-                                        ui.label(tag.as_str());
-                                    })
-                                    .1
-                                    .context_menu(|ui| {
-                                        if ui.button("Remove").clicked() {
-                                            println!("Removed tag {} from #{}", tag, post.id);
-                                            post.tags.remove(&tag);
-                                            self.tx.send(FromGUI::RemoveTag(post.id, tag)).unwrap();
-                                            ui.close_menu();
-                                        }
-                                    });
-                                });
-                            }
-                        });
-                }
-            }
             egui::TopBottomPanel::bottom("tag_editor").show(ui.ctx(), |ui| {
                 ui.label("tag editor");
+            });
+
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let search_bar = egui::TextEdit::singleline(&mut self.search)
+                    .hint_text("Search")
+                    .desired_width(f32::INFINITY)
+                    .show(ui)
+                    .response;
+
+                ui.input(|i| {
+                    if i.key_pressed(Key::I) && !search_bar.has_focus() {
+                        self.focus_search = true;
+                    }
+
+                    if i.key_pressed(Key::Enter) && search_bar.lost_focus() {
+                        println!("Search: {}", self.search);
+                    }
+                });
+
+                if self.focus_search {
+                    search_bar.request_focus();
+                    self.focus_search = false;
+                }
+
+                if let Some(index) = self.selected {
+                    if let Some(thumbnail) = self.posts.get_mut(index) {
+                        let post = &mut thumbnail.post;
+                        ui.set_width(ui.available_width());
+                        TableBuilder::new(ui)
+                            .max_scroll_height(f32::MAX)
+                            .striped(true)
+                            .resizable(false)
+                            .column(Column::remainder())
+                            .header(20.0, |mut header| {
+                                header.col(|ui| {
+                                    ui.strong("Tags");
+                                });
+                            })
+                            .body(|mut body| {
+                                let mut tags: Vec<String> =
+                                    post.tags.clone().into_iter().collect::<Vec<String>>();
+                                tags.sort_unstable();
+
+                                for tag in tags {
+                                    body.row(18.0, |mut row| {
+                                        row.col(|ui| {
+                                            ui.label(tag.as_str());
+                                        })
+                                        .1
+                                        .context_menu(
+                                            |ui| {
+                                                if ui.button("Remove").clicked() {
+                                                    println!(
+                                                        "Removed tag {} from #{}",
+                                                        tag, post.id
+                                                    );
+                                                    post.tags.remove(&tag);
+                                                    self.tx
+                                                        .send(FromGUI::RemoveTag(post.id, tag))
+                                                        .unwrap();
+                                                    ui.close_menu();
+                                                }
+                                            },
+                                        );
+                                    });
+                                }
+                            });
+                    }
+                }
             });
         });
         ctx.input(|i| {
