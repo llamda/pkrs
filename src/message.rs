@@ -14,4 +14,5 @@ pub enum FromGUI {
     RequestDroppedNewPosts(Vec<eframe::egui::DroppedFile>),
     RequestPickedNewPosts(Vec<std::path::PathBuf>),
     SetSelected(Option<usize>),
+    RemoveTag(i64, String),
 }

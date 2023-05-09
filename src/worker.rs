@@ -64,6 +64,10 @@ impl Worker {
                 FromGUI::SetSelected(selected) => {
                     self.send(FromWorker::SetSelected(selected))?;
                 }
+                FromGUI::RemoveTag(post_id, tag) => {
+                    let tag_id = self.db.get_tag_id(&tag)?;
+                    self.db.remove_tagging(post_id, tag_id)?;
+                }
             }
         }
         Ok(())

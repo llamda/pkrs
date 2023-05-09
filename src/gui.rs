@@ -238,7 +238,8 @@ impl eframe::App for App {
             }
 
             if let Some(index) = self.selected {
-                if let Some(thumbnail) = self.posts.get(index) {
+                if let Some(thumbnail) = self.posts.get_mut(index) {
+                    let post = &mut thumbnail.post;
                     ui.set_width(ui.available_width());
 
                     TableBuilder::new(ui)
@@ -251,25 +252,21 @@ impl eframe::App for App {
                             });
                         })
                         .body(|mut body| {
-                            let mut tags = thumbnail
-                                .post
-                                .tags
-                                .clone()
-                                .into_iter()
-                                .collect::<Vec<String>>();
+                            let mut tags: Vec<String> =
+                                post.tags.clone().into_iter().collect::<Vec<String>>();
                             tags.sort_unstable();
 
                             for tag in tags {
                                 body.row(18.0, |mut row| {
-                                    let (_, col) = row.col(|ui| {
+                                    row.col(|ui| {
                                         ui.label(tag.as_str());
-                                    });
-                                    col.context_menu(|ui| {
+                                    })
+                                    .1
+                                    .context_menu(|ui| {
                                         if ui.button("Remove").clicked() {
-                                            println!(
-                                                "Removed tag {} from #{}",
-                                                tag, thumbnail.post.id
-                                            );
+                                            println!("Removed tag {} from #{}", tag, post.id);
+                                            post.tags.remove(&tag);
+                                            self.tx.send(FromGUI::RemoveTag(post.id, tag)).unwrap();
                                             ui.close_menu();
                                         }
                                     });
