@@ -241,6 +241,7 @@ impl eframe::App for App {
                     editing_tags = editor.has_focus();
                     if self.focus_editor {
                         editor.request_focus();
+                        self.focus_editor = false;
                     }
                 });
             }
@@ -279,7 +280,10 @@ impl eframe::App for App {
                             post.tags.clone().into_iter().collect::<Vec<String>>();
                         tags.sort_unstable();
                         ui.input(|i| {
-                            if i.key_pressed(Key::E) && self.tag_editor.is_none() {
+                            if i.key_pressed(Key::E)
+                                && self.tag_editor.is_none()
+                                && !search_bar.has_focus()
+                            {
                                 self.tag_editor = Some(tags.join(" "));
                                 self.focus_editor = true;
                             }
