@@ -68,6 +68,10 @@ impl Worker {
                     let tag_id = self.db.get_tag_id(&tag)?;
                     self.db.remove_tagging(post_id, tag_id)?;
                 }
+                FromGUI::AddTag(post_id, tag) => {
+                    let tag_id = self.db.get_or_create_tag(&tag)?;
+                    self.db.insert_tagging(post_id, tag_id)?;
+                }
             }
         }
         Ok(())

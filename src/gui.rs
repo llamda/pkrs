@@ -1,5 +1,6 @@
 use std::{
     cmp::max,
+    collections::HashSet,
     error::Error,
     ops::RangeInclusive,
     path::PathBuf,
@@ -47,7 +48,9 @@ impl App {
             progress_message: None,
             search: String::new(),
             selected: None,
+            tag_editor: None,
             focus_search: false,
+            focus_editor: false,
             settings: Default::default(),
         };
 
@@ -77,7 +80,9 @@ pub struct App {
     progress_message: Option<String>,
     search: String,
     selected: Option<usize>,
+    tag_editor: Option<String>,
     focus_search: bool,
+    focus_editor: bool,
     settings: AppSettings,
 }
 
@@ -105,11 +110,18 @@ impl App {
     fn read_channel(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn Error>> {
         match self.rx.try_recv()? {
             FromWorker::RequestContext => self.tx.send(FromGUI::SendContext(ctx.clone()))?,
-            FromWorker::SetPosts(posts) => self.posts = posts,
+            FromWorker::SetPosts(posts) => {
+                self.posts = posts;
+                self.selected = None;
+                self.tag_editor = None;
+            }
             FromWorker::ShowProgress(b) => self.show_progress = b,
             FromWorker::SetProgress(current, total) => self.progress = (current, total),
             FromWorker::SetProgressMessage(message) => self.progress_message = message,
-            FromWorker::SetSelected(selected) => self.selected = selected,
+            FromWorker::SetSelected(selected) => {
+                self.selected = selected;
+                self.tag_editor = None;
+            }
         };
 
         Ok(())
@@ -216,9 +228,22 @@ impl eframe::App for App {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            egui::TopBottomPanel::bottom("tag_editor").show(ui.ctx(), |ui| {
-                ui.label("tag editor");
-            });
+            let mut editing_tags = false;
+            if let Some(tag_str) = &mut self.tag_editor {
+                egui::TopBottomPanel::bottom("tag_editor").show(ui.ctx(), |ui| {
+                    ui.add_space(10.0);
+                    let editor = ui.add(
+                        egui::TextEdit::multiline(tag_str)
+                            .desired_rows(1)
+                            .desired_width(f32::INFINITY),
+                    );
+                    ui.add_space(10.0);
+                    editing_tags = editor.has_focus();
+                    if self.focus_editor {
+                        editor.request_focus();
+                    }
+                });
+            }
 
             egui::CentralPanel::default().show(ctx, |ui| {
                 let search_bar = egui::TextEdit::singleline(&mut self.search)
@@ -228,7 +253,7 @@ impl eframe::App for App {
                     .response;
 
                 ui.input(|i| {
-                    if i.key_pressed(Key::I) && !search_bar.has_focus() {
+                    if i.key_pressed(Key::I) && !search_bar.has_focus() && !editing_tags {
                         self.focus_search = true;
                     }
 
@@ -245,6 +270,46 @@ impl eframe::App for App {
                 if let Some(index) = self.selected {
                     if let Some(thumbnail) = self.posts.get_mut(index) {
                         let post = &mut thumbnail.post;
+                        let mut tags: Vec<String> =
+                            post.tags.clone().into_iter().collect::<Vec<String>>();
+                        tags.sort_unstable();
+                        ui.input(|i| {
+                            if i.key_pressed(Key::E) && self.tag_editor.is_none() {
+                                self.tag_editor = Some(tags.join(" "));
+                                self.focus_editor = true;
+                            }
+
+                            if i.key_pressed(Key::Enter) && i.modifiers.ctrl {
+                                if let Some(tag_str) = &mut self.tag_editor {
+                                    let mut new_tags = HashSet::new();
+                                    for tag in tag_str.split(' ') {
+                                        let tag: String =
+                                            tag.chars().filter(|c| !c.is_whitespace()).collect();
+                                        if tag.is_empty() {
+                                            continue;
+                                        }
+
+                                        new_tags.insert(tag.to_string());
+                                    }
+
+                                    for tag in new_tags.symmetric_difference(&post.tags.clone()) {
+                                        let tag = tag.to_owned();
+
+                                        if post.tags.contains(&tag) {
+                                            println!("Removing '{}' from {}", tag, post.id);
+                                            post.tags.remove(&tag);
+                                            self.tx.send(FromGUI::RemoveTag(post.id, tag)).unwrap();
+                                        } else {
+                                            println!("Adding '{}' from {}", tag, post.id);
+                                            post.tags.insert(tag.clone());
+                                            self.tx.send(FromGUI::AddTag(post.id, tag)).unwrap();
+                                        }
+                                    }
+                                    self.tag_editor = None;
+                                }
+                            }
+                        });
+
                         ui.set_width(ui.available_width());
                         TableBuilder::new(ui)
                             .max_scroll_height(f32::MAX)
@@ -257,10 +322,6 @@ impl eframe::App for App {
                                 });
                             })
                             .body(|mut body| {
-                                let mut tags: Vec<String> =
-                                    post.tags.clone().into_iter().collect::<Vec<String>>();
-                                tags.sort_unstable();
-
                                 for tag in tags {
                                     body.row(18.0, |mut row| {
                                         row.col(|ui| {

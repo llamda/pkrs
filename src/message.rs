@@ -15,4 +15,5 @@ pub enum FromGUI {
     RequestPickedNewPosts(Vec<std::path::PathBuf>),
     SetSelected(Option<usize>),
     RemoveTag(i64, String),
+    AddTag(i64, String),
 }
