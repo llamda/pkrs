@@ -11,6 +11,7 @@ use crate::{
     gui::PostThumbnail,
     message::{FromGUI, FromWorker},
     post::Post,
+    search,
 };
 
 pub struct Worker {
@@ -71,6 +72,14 @@ impl Worker {
                 FromGUI::AddTag(post_id, tag) => {
                     let tag_id = self.db.get_or_create_tag(&tag)?;
                     self.db.insert_tagging(post_id, tag_id)?;
+                }
+                FromGUI::Search(query) => {
+                    let search: Vec<String> = query.split(' ').map(|s| s.to_owned()).collect();
+                    let posts = search::new(search, &mut self.db)?
+                        .into_iter()
+                        .map(PostThumbnail::from)
+                        .collect();
+                    self.send(FromWorker::SetPosts(posts))?;
                 }
             }
         }

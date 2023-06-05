@@ -2,7 +2,7 @@ use std::{error::Error, path::Path};
 
 use clap::{Parser, Subcommand};
 
-use crate::{db::Database, gui, post::Post};
+use crate::{db::Database, gui, post::Post, search};
 
 #[derive(Parser, Debug)]
 #[clap(trailing_var_arg = true)]
@@ -130,23 +130,7 @@ impl Cli {
             }
 
             Mode::Search { tags } => {
-                let mut include = Vec::new();
-                let mut exclude = Vec::new();
-
-                for tag in tags {
-                    match tag.starts_with('-') {
-                        true => exclude.push(tag[1..].to_owned()),
-                        false => include.push(tag),
-                    }
-                }
-
-                println!(
-                    "Searching for '{}' Excluding: {}",
-                    include.join(","),
-                    exclude.join(",")
-                );
-
-                let posts = db.search(include, exclude)?;
+                let posts = search::new(tags, &mut db)?;
                 for post in posts {
                     println!("{}", post);
                 }

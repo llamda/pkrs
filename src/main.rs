@@ -6,6 +6,7 @@ mod gui;
 mod hash;
 mod message;
 mod post;
+mod search;
 mod thumbnail;
 mod worker;
 use cli::Cli;

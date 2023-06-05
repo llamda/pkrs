@@ -259,6 +259,11 @@ impl eframe::App for App {
 
                     if i.key_pressed(Key::Enter) && search_bar.lost_focus() {
                         println!("Search: {}", self.search);
+                        if self.search.is_empty() {
+                            self.tx.send(FromGUI::RequestAllPosts).unwrap();
+                        } else {
+                            self.tx.send(FromGUI::Search(self.search.clone())).unwrap();
+                        }
                     }
                 });
 

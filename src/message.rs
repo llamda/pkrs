@@ -16,4 +16,5 @@ pub enum FromGUI {
     SetSelected(Option<usize>),
     RemoveTag(i64, String),
     AddTag(i64, String),
+    Search(String),
 }
